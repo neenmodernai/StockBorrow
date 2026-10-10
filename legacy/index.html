@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Borrow App v2.8</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Icons (Heroicons) -->
+    <script src="https://unpkg.com/heroicons@2.1.3/dist/solid.js" defer></script>
+    <script src="https://unpkg.com/heroicons@2.1.3/dist/outline.js" defer></script>
+
+    <style>
+        /* Use Inter as the base font, with Noto Sans Thai for Thai characters */
+        body {
+            font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+        }
+        /* Custom style for active nav item */
+        .nav-item[aria-selected="true"] {
+            color: #2563EB; /* text-blue-600 */
+        }
+        /* Custom style for status buttons */
+        .status-btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .status-btn[aria-pressed="true"] {
+            transform: scale(1.05);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* --- Modal Styles --- */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.75);
+            z-index: 90;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            width: 100%;
+            max-width: 28rem; /* 448px */
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+        }
+
+        /* --- Debug Menu Styles --- */
+        .debug-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.75);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .debug-content {
+            background-color: #1e1e1e; /* Dark background */
+            color: #d4d4d4; /* Light text */
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            width: 100%;
+            max-width: 40rem; /* 640px */
+            max-height: 90vh;
+            /* Flex layout to keep header pinned */
+            display: flex;
+            flex-direction: column;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.875rem; /* 14px */
+        }
+        .debug-header {
+            flex-shrink: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .debug-content pre {
+            white-space: pre-wrap; /* Wrap long lines */
+            word-wrap: break-word; /* Break words */
+            overflow-y: auto; /* Only content scrolls */
+            flex-grow: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <!-- Main App Container -->
+    <div class="max-w-lg mx-auto min-h-screen bg-white shadow-2xl flex flex-col">
+
+        <!-- Header -->
+        <header id="app-header" class="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center select-none">
+            <h1 class="text-xl font-bold" id="header-title">ขอเบิกสินค้า</h1>
+            <span id="version-label" class="text-xs bg-blue-700 px-2 py-1 rounded cursor-pointer hover:bg-blue-800 transition">v2.8</span>
+        </header>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="hidden absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
+            <div class="flex flex-col items-center">
+                <svg class="animate-spin h-10 w-10 text-blue-600 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p id="loading-text" class="text-gray-600 text-sm font-medium">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <main id="content-container" class="flex flex-col p-4 overflow-y-auto pb-20">
+            <!-- Content will be injected by JS -->
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white border-t border-gray-200 flex justify-around p-3 shadow-inner z-40">
+            <button class="nav-item flex flex-col items-center justify-center text-gray-500" data-tab="borrow" aria-selected="true">
+                <!-- Borrow Icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><path d="M12 9a.75.75 0 0 1 .75.75v.006c0 .414-.336.75-.75.75a.75.75 0 0 1-.75-.75V9.75A.75.75 0 0 1 12 9Zm0 3a.75.75 0 0 1 .75.75v.006c0 .414-.336.75-.75.75a.75.75 0 0 1-.75-.75v-.006A.75.75 0 0 1 12 12Zm0 3a.75.75 0 0 1 .75.75v.006c0 .414-.336.75-.75.75a.75.75 0 0 1-.75-.75v-.006A.75.75 0 0 1 12 15Zm0 3a.75.75 0 0 1 .75.75v.006c0 .414-.336.75-.75.75a.75.75 0 0 1-.75-.75v-.006A.75.75 0 0 1 12 18Z" /><path fill-rule="evenodd" d="M10.5 3A2.25 2.25 0 0 0 8.25 5.25v2.017c.22.03.444.07.672.126.21.052.41.11.598.177.306.11.6.23.88.36C11.168 8.24 12 8.93 12 9.75v.006c0 .414-.336.75-.75.75a.75.75 0 0 1-.75-.75V9.75c0-.416-.27-.78-.654-.916a13.312 13.312 0 0 0-1.12.394c-.18.067-.35.138-.507.214-.15.073-.29.15-.42.23a13.416 13.416 0 0 0-2.31 1.451c-.347.22-.54.61-.54 1.02v2.017c.22.03.444.07.672.126.21.052.41.11.598.177.306.11.6.23.88.36.768.336 1.45.922 1.45 1.74v.006c0 .414-.336.75-.75.75a.75.75 0 0 1-.75-.75v-.006c0-.416-.27-.78-.654-.916a13.312 13.312 0 0 0-1.12.394c-.18.067-.35.138-.507.214-.15.073-.29.15-.42.23a13.416 13.416 0 0 0-2.31 1.451c-.347.22-.54.61-.54 1.02v2.017c.22.03.444.07.672.126.21.052.41.11.598.177.306.11.6.23.88.36.768.336 1.45.922 1.45 1.74v.006c0 .414-.336.75-.75.75a.75.75 0 0 1-.75-.75v-.006c0-.416-.27-.78-.654-.916a13.312 13.312 0 0 0-1.12.394c-.18.067-.35.138-.507.214-.15.073-.29.15-.42.23A2.25 2.25 0 0 1 3 20.25V5.25A2.25 2.25 0 0 1 5.25 3h5.25Zm2.25 3H18a.75.75 0 0 1 .75.75v12a.75.75 0 0 1-.75.75h-5.25a.75.75 0 0 1-.75-.75V6.75a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" /><path d="M14.25 7.5a.75.75 0 0 1 .75.75v.006c0 .414-.336.75-.75.75a.75.75 0 0 1-.75-.75V8.25a.75.75 0 0 1 .75-.75Zm0 3a.75.75 0 0 1 .75.75v.006c0 .414-.336.75-.75.75a.75.75 0 0 1-.75-.75v-.006a.75.75 0 0 1 .75-.75Zm0 3a.75.75 0 0 1 .75.75v.006c0 .414-.336.75-.75.75a.75.75 0 0 1-.75-.75v-.006a.75.75 0 0 1 .75-.75Zm0 3a.75.75 0 0 1 .75.75v.006c0 .414-.336.75-.75.75a.75.75 0 0 1-.75-.75v-.006a.75.75 0 0 1 .75-.75Z" /></svg>
+                <span class="text-xs font-medium">ขอเบิก</span>
+            </button>
+            <button class="nav-item flex flex-col items-center justify-center text-gray-500" data-tab="list">
+                <!-- List Icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><path fill-rule="evenodd" d="M2.625 6.75a8.25 8.25 0 0 1 16.5 0v.266c.03.14.053.283.068.429l.006.052a.25.25 0 0 1-.249.25H2.8a.25.25 0 0 1-.25-.25l.006-.052c.015-.146.038-.289.068-.429V6.75ZM3.006 8.5H20.994c.28 0 .5.22.5.5v.25a.25.25 0 0 1-.25.25H2.75a.25.25 0 0 1-.25-.25V9c0-.28.22-.5.5-.5Z" clip-rule="evenodd" /><path d="M2.75 10.5h18.5c.28 0 .5.22.5.5v8.25a.25.25 0 0 1-.25.25H2.5a.25.25 0 0 1-.25-.25V11c0-.28.22-.5.5-.5ZM5 12.75a.75.75 0 0 1 .75-.75h.5a.75.75 0 0 1 0 1.5h-.5a.75.75 0 0 1-.75-.75Zm0 3a.75.75 0 0 1 .75-.75h.5a.75.75 0 0 1 0 1.5h-.5a.75.75 0 0 1-.75-.75Zm.75 2.25a.75.75 0 0 0 0 1.5h.5a.75.75 0 0 0 0-1.5h-.5Z" /><path d="M10 12.75a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1-.75-.75Zm.75 2.25a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-6.5Z" /></svg>
+                <span class="text-xs font-medium">รายการยืม</span>
+            </button>
+            <button class="nav-item flex flex-col items-center justify-center text-gray-500" data-tab="summary">
+                <!-- Summary Icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><path fill-rule="evenodd" d="M2.625 6.75a1.125 1.125 0 0 1 1.125-1.125h16.5a1.125 1.125 0 0 1 1.125 1.125v10.5a1.125 1.125 0 0 1-1.125 1.125h-16.5a1.125 1.125 0 0 1-1.125-1.125V6.75ZM3.75 17.25h16.5V6.75H3.75v10.5Z" clip-rule="evenodd" /><path d="M6 9.75A.75.75 0 0 1 6.75 9h10.5a.75.75 0 0 1 0 1.5H6.75A.75.75 0 0 1 6 9.75Zm0 3A.75.75 0 0 1 6.75 12h10.5a.75.75 0 0 1 0 1.5H6.75A.75.75 0 0 1 6 12.75Zm0 3A.75.75 0 0 1 6.75 15h10.5a.75.75 0 0 1 0 1.5H6.75A.75.75 0 0 1 6 15.75Z" /></svg>
+                <span class="text-xs font-medium">สรุปสต็อก</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Message/Toast -->
+    <div id="toast" class="hidden fixed top-5 right-5 bg-green-500 text-white p-3 rounded-lg shadow-lg z-50 transition-opacity duration-300">
+        <span id="toast-message"></span>
+    </div>
+    
+    <!-- Undo Toast (Bottom Center) -->
+    <div id="undo-toast" class="hidden fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg z-50 flex items-center gap-4 transition-all duration-300">
+        <span class="text-sm">Item deleted</span>
+        <button id="undo-btn" class="text-blue-300 text-sm font-bold hover:text-blue-200">UNDO</button>
+    </div>
+
+    <!-- Secret Debug Menu -->
+    <div id="debug-overlay" class="debug-overlay hidden">
+        <div class="debug-content">
+            <div class="debug-header">
+                <h2 class="text-lg font-bold text-white">Debug Console</h2>
+                <div class="flex gap-2">
+                    <button id="force-refresh-btn" class="bg-blue-600 text-white py-1 px-3 rounded-md hover:bg-blue-700 transition text-xs">Refresh Data</button>
+                    <button id="debug-close-btn" class="bg-red-500 text-white py-1 px-3 rounded-md hover:bg-red-600 transition text-xs">&times; Close</button>
+                </div>
+            </div>
+            <pre id="debug-data-pre"></pre>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal (Delete) -->
+    <div id="confirm-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 id="confirm-title" class="text-lg font-bold text-gray-900">ยืนยันการลบ</h2>
+            <p id="confirm-message" class="mt-2 text-sm text-gray-600">คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้?</p>
+            <div class="mt-6 flex justify-end gap-3">
+                <button id="confirm-cancel-btn" class="py-2 px-4 bg-gray-200 text-gray-800 font-medium rounded-md hover:bg-gray-300">ยกเลิก</button>
+                <button id="confirm-action-btn" class="py-2 px-4 bg-red-600 text-white font-medium rounded-md hover:bg-red-700">ลบ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Option Modal (Add More) -->
+    <div id="success-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 class="text-lg font-bold text-green-700 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" /></svg>
+                บันทึกสำเร็จ
+            </h2>
+            <p class="mt-2 text-sm text-gray-600">ต้องการทำรายการต่อสำหรับลูกค้าเดิม หรือจบงาน?</p>
+            <div class="mt-6 flex flex-col gap-3">
+                <button id="success-add-more-btn" class="w-full py-3 px-4 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700 shadow flex justify-center items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" /></svg>
+                    เพิ่มสินค้าอื่น (ลูกค้าเดิม)
+                </button>
+                <button id="success-finish-btn" class="w-full py-3 px-4 bg-gray-200 text-gray-800 font-medium rounded-md hover:bg-gray-300">
+                    จบงาน / รายการใหม่
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const USE_MOCK_DATA = false;
+        const CACHE_KEY_PREFIX = 'stock_borrow_cache_v1_';
+        const CACHE_DURATION = 1000 * 60 * 60; // 1 Hour Cache
+
+        // --- API CONFIGURATION ---
+        const SHEETDB_API_IDS = [
+            '5ydmdoidxziy4', //umayadonburi
+            'w2egz4wtz8ssb', //neenmodern
+            '9wv02naeiwc4o', //neenmodern.ai
+            'f5jebnsnaapgg', //saran.rez.photo
+			'mmjvwn0706zhj', //neenestate
+            'dwpvzppkz24o7' //saran.rez
+			
+        ];
+        
+        // --- CHANGELOG ---
+        const CHANGELOG = [
+            "v2.8: Random Start API + Robust Failover.",
+            "v2.7: Cleared exhausted API keys. Added clearer Quota Error message.",
+            "v2.6: Randomized API load to prevent quota lock.",
+            "v2.5: Fixed Delete button, Added Undo (4s).",
+        ];
+
+        // --- MOCK DATA ---
+        const mockData = {
+            productMaster: [
+                { ID: "P-001", Name: "ชุดเดรสสีฟ้า" },
+                { ID: "P-002", Name: "กระโปรงเทนนิส" },
+                { ID: "P-003", Name: "เสื้อเชิ้ตลายทาง" }
+            ],
+            customerMaster: [
+                { Name: "คุณสมหญิง" },
+                { Name: "คุณสมชาย" }
+            ],
+            borrowHistory: [
+                {
+                    Timestamp: "2025-12-14 10:30:00",
+                    ProductID: "P-001",
+                    ProductName: "ชุดเดรสสีฟ้า",
+                    CustomerName: "คุณสมหญิง",
+                    Quantity: 1,
+                    Status: "อยู่ในระหว่างยืม",
+                    Notes: "Test Note",
+                    UID: "mock1"
+                }
+            ]
+        };
+
+        // --- APPLICATION STATE ---
+        const state = {
+            activeTab: 'borrow',
+            isLoading: false,
+            productMaster: [],
+            customerMaster: [],
+            borrowHistory: [],
+            lastError: null,
+            // START RANDOM: Distribute load across all 5 keys immediately
+            currentApiIndex: Math.floor(Math.random() * SHEETDB_API_IDS.length), 
+            pendingDelete: null,
+            
+            listFilter: {
+                sortBy: 'timestamp',
+                date: '', 
+                status: {
+                    'อยู่ในระหว่างยืม': true,
+                    'คืนแล้ว': true,
+                    'ทำขายแล้ว': true
+                }
+            },
+            
+            headerTitles: {
+                borrow: 'ขอเบิกสินค้า',
+                list: 'รายการยืม',
+                summary: 'สรุปสต็อก'
+            }
+        };
+
+        // --- DOM ELEMENTS ---
+        const contentContainer = document.getElementById('content-container');
+        const navItems = document.querySelectorAll('.nav-item');
+        const headerTitle = document.getElementById('header-title');
+        const versionLabel = document.getElementById('version-label');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+        
+        const confirmModal = document.getElementById('confirm-modal');
+        const confirmTitle = document.getElementById('confirm-title');
+        let confirmActionBtn = document.getElementById('confirm-action-btn');
+        const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
+        
+        const successModal = document.getElementById('success-modal');
+        const successAddMoreBtn = document.getElementById('success-add-more-btn');
+        const successFinishBtn = document.getElementById('success-finish-btn');
+
+        const debugOverlay = document.getElementById('debug-overlay');
+        const debugDataPre = document.getElementById('debug-data-pre');
+        const debugCloseBtn = document.getElementById('debug-close-btn');
+        const forceRefreshBtn = document.getElementById('force-refresh-btn');
+
+        let headerClickCount = 0;
+        let headerClickTimer = null;
+
+        // --- CACHE HELPERS ---
+        function getCachedData(key) {
+            try {
+                const raw = localStorage.getItem(CACHE_KEY_PREFIX + key);
+                if (!raw) return null;
+                const data = JSON.parse(raw);
+                if (Date.now() - data.timestamp > CACHE_DURATION) {
+                    localStorage.removeItem(CACHE_KEY_PREFIX + key);
+                    return null;
+                }
+                return data.value;
+            } catch(e) { return null; }
+        }
+
+        function setCachedData(key, value) {
+            try {
+                localStorage.setItem(CACHE_KEY_PREFIX + key, JSON.stringify({
+                    timestamp: Date.now(),
+                    value: value
+                }));
+            } catch(e) {}
+        }
+
+        function clearCache() {
+            Object.keys(localStorage).forEach(k => {
+                if(k.startsWith(CACHE_KEY_PREFIX)) localStorage.removeItem(k);
+            });
+            showToast('Cache Cleared', 'success');
+        }
+
+        // --- API ROTATION ---
+        async function fetchSheetDB(endpoint, options = {}) {
+            const maxRetries = SHEETDB_API_IDS.length;
+            let attempts = 0;
+            
+            if (SHEETDB_API_IDS[0].includes('YOUR_NEW')) {
+                throw new Error("API ID Missing: Please add your new SheetDB ID to the code.");
+            }
+
+            while (attempts < maxRetries) {
+                const apiId = SHEETDB_API_IDS[state.currentApiIndex];
+                // console.log(`[Fetch] Attempt ${attempts + 1}/${maxRetries} using API Index: ${state.currentApiIndex}`);
+
+                const baseUrl = `https://sheetdb.io/api/v1/${apiId}`;
+                const url = `${baseUrl}${endpoint}`;
+                try {
+                    const res = await fetch(url, options);
+                    
+                    // Force switch on known Quota/Limit/Forbidden errors
+                    // Also switch on 5xx server errors
+                    if (!res.ok) {
+                        if (res.status === 402 || res.status === 429 || res.status === 403 || res.status >= 500) {
+                            throw new Error(`API Error ${res.status}`);
+                        }
+                    }
+                    return res;
+                } catch (error) {
+                    console.warn(`API Index ${state.currentApiIndex} (${apiId}) failed: ${error.message}. Switching...`);
+                    attempts++;
+                    // Rotate to next key
+                    state.currentApiIndex = (state.currentApiIndex + 1) % SHEETDB_API_IDS.length;
+                }
+            }
+            throw new Error("All API Keys failed (Quota Exceeded?). Please check your usage.");
+        }
+
+        // --- INIT ---
+        async function initApp() {
+            navItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    state.activeTab = item.dataset.tab;
+                    renderApp();
+                });
+            });
+
+            versionLabel.addEventListener('click', handleHeaderClick);
+            debugCloseBtn.addEventListener('click', () => debugOverlay.classList.add('hidden'));
+            confirmCancelBtn.addEventListener('click', () => confirmModal.classList.add('hidden'));
+            
+            forceRefreshBtn.addEventListener('click', async () => {
+                clearCache();
+                debugOverlay.classList.add('hidden');
+                await loadDataFromSheet(true);
+            });
+
+            successAddMoreBtn.addEventListener('click', () => {
+                successModal.classList.add('hidden');
+                document.getElementById('productId').value = '';
+                document.getElementById('productName').value = '';
+                document.getElementById('quantity').value = '1';
+                document.getElementById('productId').focus();
+            });
+
+            successFinishBtn.addEventListener('click', () => {
+                successModal.classList.add('hidden');
+                document.getElementById('borrow-form').reset();
+                state.activeTab = 'list';
+                renderApp();
+            });
+
+            document.addEventListener('click', (e) => {
+                if (state.activeTab === 'borrow') {
+                    const pContainer = document.getElementById('product-dropdown-container');
+                    const cContainer = document.getElementById('customer-dropdown-container');
+                    if (pContainer && !pContainer.contains(e.target)) {
+                        const list = document.getElementById('product-dropdown-list');
+                        if(list) list.classList.add('hidden');
+                    }
+                    if (cContainer && !cContainer.contains(e.target)) {
+                        const list = document.getElementById('customer-dropdown-list');
+                        if(list) list.classList.add('hidden');
+                    }
+                }
+            });
+
+            if (USE_MOCK_DATA) {
+                await loadMockData();
+            } else {
+                await loadDataFromSheet(false);
+            }
+            renderApp();
+        }
+
+        // --- DATA LOAD ---
+        function getValue(row, key) {
+            if (!row) return undefined;
+            if (row[key] !== undefined) return row[key];
+            const lowerKey = key.toLowerCase();
+            const foundKey = Object.keys(row).find(k => k.toLowerCase() === lowerKey);
+            return foundKey ? row[foundKey] : undefined;
+        }
+
+        async function loadDataFromSheet(force = false) {
+            setLoading(true);
+            loadingText.textContent = "Loading data...";
+            state.lastError = null;
+
+            try {
+                let productData = force ? null : getCachedData('products');
+                let customerData = force ? null : getCachedData('customers');
+                
+                const promises = [];
+                if (!productData) promises.push(fetchSheetDB('?sheet=ProductMaster'));
+                if (!customerData) promises.push(fetchSheetDB('?sheet=CustomerMaster'));
+                
+                promises.push(fetchSheetDB('?sheet=BorrowLog'));
+
+                const results = await Promise.all(promises);
+                let resIndex = 0;
+
+                if (!productData) {
+                    const res = results[resIndex++];
+                    if(res.ok) {
+                         const json = await res.json();
+                         productData = json.filter(p => getValue(p, 'ID'));
+                         setCachedData('products', productData);
+                    }
+                }
+                if (!customerData) {
+                     const res = results[resIndex++];
+                     if(res.ok) {
+                         const json = await res.json();
+                         customerData = json.filter(c => getValue(c, 'Name'));
+                         setCachedData('customers', customerData);
+                     }
+                }
+                
+                const borrowRes = results[resIndex];
+                let borrowLogData = [];
+                if (borrowRes.ok) {
+                    borrowLogData = await borrowRes.json();
+                }
+
+                state.productMaster = productData.map(p => ({ ID: getValue(p, 'ID'), Name: getValue(p, 'Name') || getValue(p, 'ProductName') }));
+                state.customerMaster = customerData.map(c => ({ Name: getValue(c, 'Name') || getValue(c, 'CustomerName') }));
+                state.borrowHistory = borrowLogData.filter(b => getValue(b, 'UID')).map(b => ({
+                    timestamp: getValue(b, 'Timestamp'), 
+                    productId: getValue(b, 'ProductID'),
+                    productName: getValue(b, 'ProductName'),
+                    customerName: getValue(b, 'CustomerName'),
+                    quoteNo: getValue(b, 'QuoteNo'),
+                    quantity: parseInt(getValue(b, 'Quantity') || 0, 10),
+                    requester: getValue(b, 'Requester'),
+                    notes: getValue(b, 'Notes'),
+                    status: getValue(b, 'Status'),
+                    uid: getValue(b, 'UID'),
+                    barcode: getValue(b, 'Barcode')
+                }));
+
+            } catch (error) {
+                console.error(error);
+                state.lastError = error;
+                const msg = error.message.includes("API ID Missing") 
+                    ? "Setup Required: Please add your SheetDB API Key"
+                    : (error.message.includes("Quota") 
+                        ? "Free Quota Exceeded. Please get a new key." 
+                        : `Load Error: ${error.message}`);
+                showToast(msg, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function loadMockData() {
+            state.productMaster = mockData.productMaster;
+            state.customerMaster = mockData.customerMaster;
+            state.borrowHistory = mockData.borrowHistory;
+        }
+
+        // --- RENDER MAIN ---
+        function renderApp() {
+            if (state.isLoading) {
+                contentContainer.innerHTML = '';
+                return;
+            }
+            headerTitle.textContent = state.headerTitles[state.activeTab];
+            navItems.forEach(item => {
+                item.setAttribute('aria-selected', item.dataset.tab === state.activeTab);
+            });
+
+            switch (state.activeTab) {
+                case 'borrow':
+                    renderBorrowForm();
+                    break;
+                case 'list':
+                    renderBorrowList();
+                    break;
+                case 'summary':
+                    renderStockSummary();
+                    break;
+            }
+        }
+
+        // --- BORROW FORM ---
+        function renderBorrowForm() {
+            contentContainer.innerHTML = `
+                <form id="borrow-form" class="flex flex-col gap-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Barcode</label>
+                            <input type="text" id="barcode" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">ProductID *</label>
+                            <div class="relative" id="product-dropdown-container">
+                                <input type="text" id="productId" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Search..." required autocomplete="off">
+                                <div id="product-dropdown-list" class="hidden absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">ชื่อสินค้า *</label>
+                            <input type="text" id="productName" class="mt-1 block w-full p-2 border border-gray-300 rounded-md bg-gray-100" readonly required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">จำนวน *</label>
+                            <input type="number" id="quantity" value="1" min="1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">ชื่อลูกค้า *</label>
+                            <div class="relative" id="customer-dropdown-container">
+                                <input type="text" id="customerName" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Search/Add..." required autocomplete="off">
+                                <div id="customer-dropdown-list" class="hidden absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">เลขใบเสนอราคา *</label>
+                            <input type="text" id="quoteNo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">ชื่อผู้แจ้ง *</label>
+                        <input type="text" id="requester" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">หมายเหตุ</label>
+                        <textarea id="notes" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"></textarea>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 transition duration-200 shadow-md mt-4">
+                        บันทึกการยืม
+                    </button>
+                </form>
+            `;
+            setupFormListeners();
+        }
+
+        function setupFormListeners() {
+            const pInput = document.getElementById('productId');
+            const pList = document.getElementById('product-dropdown-list');
+            
+            pInput.addEventListener('input', (e) => {
+                autoFillProductName(e);
+                filterProductDropdown(e.target.value);
+            });
+            pInput.addEventListener('focus', (e) => filterProductDropdown(e.target.value));
+            
+            pList.addEventListener('click', (e) => {
+                const li = e.target.closest('li');
+                if (li) {
+                    pInput.value = li.dataset.id;
+                    pList.classList.add('hidden');
+                    pInput.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            });
+
+            const cInput = document.getElementById('customerName');
+            const cList = document.getElementById('customer-dropdown-list');
+            
+            cInput.addEventListener('input', (e) => filterCustomerDropdown(e.target.value));
+            cInput.addEventListener('focus', (e) => filterCustomerDropdown(e.target.value));
+            
+            cList.addEventListener('click', (e) => {
+                const li = e.target.closest('li');
+                if (li) {
+                    cInput.value = li.dataset.name;
+                    cList.classList.add('hidden');
+                    cInput.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            });
+
+            document.getElementById('borrow-form').addEventListener('submit', handleFormSubmit);
+        }
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            let friendlyTimestamp;
+            try {
+                friendlyTimestamp = new Date().toLocaleString('en-CA', { hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(',', '');
+            } catch(e) { friendlyTimestamp = new Date().toISOString(); }
+
+            const newEntry = {
+                Timestamp: friendlyTimestamp,
+                Barcode: document.getElementById('barcode').value,
+                ProductID: document.getElementById('productId').value,
+                ProductName: document.getElementById('productName').value,
+                CustomerName: document.getElementById('customerName').value,
+                QuoteNo: document.getElementById('quoteNo').value,
+                Quantity: parseInt(document.getElementById('quantity').value, 10),
+                Requester: document.getElementById('requester').value,
+                Notes: document.getElementById('notes').value,
+                Status: "อยู่ในระหว่างยืม",
+                UID: crypto.randomUUID()
+            };
+
+            if (!newEntry.ProductName || !newEntry.ProductID) {
+                showToast('ข้อมูลสินค้าไม่ถูกต้อง', 'error');
+                return;
+            }
+
+            setLoading(true);
+
+            if (USE_MOCK_DATA) {
+                await new Promise(r => setTimeout(r, 500));
+                saveLocalState(newEntry);
+                setLoading(false);
+                successModal.classList.remove('hidden');
+            } else {
+                try {
+                    const res = await fetchSheetDB('?sheet=BorrowLog', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ data: newEntry })
+                    });
+                    if (!res.ok) throw new Error('Save Failed');
+                    const result = await res.json();
+                    if(result.created) {
+                        saveLocalState(newEntry);
+                        if (!state.customerMaster.find(c => c.Name === newEntry.CustomerName)) {
+                            state.customerMaster.push({ Name: newEntry.CustomerName });
+                            state.customerMaster.sort((a, b) => a.Name.localeCompare(b.Name));
+                            setCachedData('customers', state.customerMaster); 
+                            addCustomerToSheet(newEntry.CustomerName);
+                        }
+                        setLoading(false);
+                        successModal.classList.remove('hidden');
+                    } else { throw new Error(result.error); }
+                } catch (error) {
+                    setLoading(false);
+                    console.error(error);
+                    showToast(`Error: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        function saveLocalState(newEntry) {
+            state.borrowHistory.unshift({
+                timestamp: newEntry.Timestamp,
+                productId: newEntry.ProductID,
+                productName: newEntry.ProductName,
+                customerName: newEntry.CustomerName,
+                quoteNo: newEntry.QuoteNo,
+                quantity: newEntry.Quantity,
+                requester: newEntry.Requester,
+                notes: newEntry.Notes,
+                status: newEntry.Status,
+                uid: newEntry.UID,
+                barcode: newEntry.Barcode
+            });
+        }
+
+        // --- BORROW LIST ---
+        function renderBorrowList(searchTerm = '') {
+            let controls = document.getElementById('list-controls');
+            if (!controls) {
+                contentContainer.innerHTML = `
+                    <div id="list-controls" class="bg-white p-3 rounded-lg shadow-sm border border-gray-200 mb-4">
+                        <div class="flex gap-2 mb-2">
+                            <input type="search" id="search-list" placeholder="Search..." class="flex-grow p-2 border border-gray-300 rounded text-sm">
+                            <input type="month" id="filter-date" class="p-2 border border-gray-300 rounded text-sm w-32 bg-white text-xs">
+                        </div>
+                        <div class="flex flex-wrap justify-between items-center gap-2 text-xs">
+                            <div class="flex gap-2">
+                                <label class="inline-flex items-center bg-yellow-50 px-2 py-1 rounded border border-yellow-200">
+                                    <input type="checkbox" class="filter-cb h-3 w-3 text-yellow-600" data-status="อยู่ในระหว่างยืม" checked>
+                                    <span class="ml-1 text-yellow-800">ยืม</span>
+                                </label>
+                                <label class="inline-flex items-center bg-green-50 px-2 py-1 rounded border border-green-200">
+                                    <input type="checkbox" class="filter-cb h-3 w-3 text-green-600" data-status="คืนแล้ว" checked>
+                                    <span class="ml-1 text-green-800">คืน</span>
+                                </label>
+                                <label class="inline-flex items-center bg-blue-50 px-2 py-1 rounded border border-blue-200">
+                                    <input type="checkbox" class="filter-cb h-3 w-3 text-blue-600" data-status="ทำขายแล้ว" checked>
+                                    <span class="ml-1 text-blue-800">ขาย</span>
+                                </label>
+                            </div>
+                            <select id="sort-select" class="p-1 border border-gray-300 rounded text-xs bg-white">
+                                <option value="timestamp">Newest</option>
+                                <option value="productId">Product</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="list-container"></div>
+                `;
+
+                const searchInput = document.getElementById('search-list');
+                const sortSelect = document.getElementById('sort-select');
+                const dateInput = document.getElementById('filter-date');
+                const filterCbs = document.querySelectorAll('.filter-cb');
+                const listContainer = document.getElementById('list-container');
+
+                searchInput.addEventListener('input', (e) => updateBorrowListItems());
+                sortSelect.addEventListener('change', (e) => {
+                    state.listFilter.sortBy = e.target.value;
+                    updateBorrowListItems();
+                });
+                dateInput.addEventListener('change', (e) => {
+                    state.listFilter.date = e.target.value; 
+                    updateBorrowListItems();
+                });
+                filterCbs.forEach(cb => {
+                    cb.addEventListener('change', (e) => {
+                        state.listFilter.status[e.target.dataset.status] = e.target.checked;
+                        updateBorrowListItems();
+                    });
+                });
+
+                listContainer.addEventListener('click', (e) => {
+                    const btn = e.target.closest('button');
+                    if (!btn) return;
+                    const uid = btn.closest('[data-uid]')?.dataset.uid;
+                    if (!uid) return;
+
+                    if (btn.classList.contains('status-btn')) {
+                        handleStatusChange(uid, btn.dataset.status);
+                    } else if (btn.classList.contains('delete-btn')) {
+                        const pname = btn.dataset.product || 'Item';
+                        handleDeleteConfirmation(uid, pname);
+                    }
+                });
+            }
+            
+            if (searchTerm) {
+                const searchInput = document.getElementById('search-list');
+                if (searchInput) searchInput.value = searchTerm;
+            }
+            
+            updateBorrowListItems();
+        }
+
+        function updateBorrowListItems() {
+            const searchInput = document.getElementById('search-list');
+            const term = searchInput ? searchInput.value.toLowerCase() : '';
+            const sortVal = state.listFilter.sortBy;
+            const statusFilters = state.listFilter.status;
+            const dateFilter = state.listFilter.date;
+
+            let filtered = state.borrowHistory.filter(item => {
+                const matchesSearch = 
+                    item.productName.toLowerCase().includes(term) ||
+                    (item.productId && item.productId.toLowerCase().includes(term)) ||
+                    item.customerName.toLowerCase().includes(term) ||
+                    (item.notes && item.notes.toLowerCase().includes(term));
+                
+                const matchesStatus = statusFilters[item.status] === true;
+
+                let matchesDate = true;
+                if (dateFilter && item.timestamp) {
+                    matchesDate = item.timestamp.startsWith(dateFilter);
+                }
+
+                return matchesSearch && matchesStatus && matchesDate;
+            });
+
+            filtered.sort((a, b) => {
+                if (sortVal === 'timestamp') return new Date(b.timestamp) - new Date(a.timestamp);
+                else return (a.productId || '').localeCompare(b.productId || '');
+            });
+
+            const listHtml = filtered.map(item => {
+                const ts = item.timestamp;
+                const displayDate = ts ? ts.split(' ')[0] : '...';
+                const displayTime = ts && ts.includes(' ') ? ts.split(' ')[1] : '';
+
+                return `
+                <div class="bg-white p-4 rounded-lg shadow border border-gray-200 mb-4">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <p class="font-bold text-lg text-blue-700">${item.productName}</p>
+                            <p class="text-sm text-gray-500">${item.productId} | Qty: ${item.quantity}</p>
+                        </div>
+                        <div class="text-right">
+                             <span class="text-xs text-gray-800 font-medium block">${displayDate}</span>
+                             <span class="text-xs text-gray-400 block">${displayTime}</span>
+                        </div>
+                    </div>
+                    <div class="text-sm text-gray-700 mb-3 space-y-1">
+                        <p><strong>Customer:</strong> ${item.customerName} (${item.quoteNo})</p>
+                        ${item.notes ? `<p class="bg-gray-50 p-1 rounded"><strong>Note:</strong> ${item.notes}</p>` : ''}
+                    </div>
+                    <div class="flex flex-wrap justify-around gap-2" data-uid="${item.uid}">
+                        <button class="status-btn flex-1 text-xs py-2 px-2 rounded-full ${item.status === 'อยู่ในระหว่างยืม' ? 'bg-yellow-400 text-yellow-900 shadow-md ring-2 ring-yellow-200' : 'bg-gray-100 text-gray-500'}" data-status="อยู่ในระหว่างยืม">ยืม</button>
+                        <button class="status-btn flex-1 text-xs py-2 px-2 rounded-full ${item.status === 'คืนแล้ว' ? 'bg-green-400 text-green-900 shadow-md ring-2 ring-green-200' : 'bg-gray-100 text-gray-500'}" data-status="คืนแล้ว">คืน</button>
+                        <button class="status-btn flex-1 text-xs py-2 px-2 rounded-full ${item.status === 'ทำขายแล้ว' ? 'bg-blue-400 text-blue-900 shadow-md ring-2 ring-blue-200' : 'bg-gray-100 text-gray-500'}" data-status="ทำขายแล้ว">ขาย</button>
+                        <button class="delete-btn flex-shrink-0 text-xs py-2 px-3 rounded-full bg-red-100 text-red-700 hover:bg-red-200" data-uid="${item.uid}" data-product="${item.productName}">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.5 7.5a.75.75 0 1 0 1.5-.06l-.5-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.5 7.5a.75.75 0 0 0 1.5.06l.5-7.5Z" clip-rule="evenodd" /></svg>
+                        </button>
+                    </div>
+                </div>
+            `}).join('');
+
+            document.getElementById('list-container').innerHTML = filtered.length ? listHtml : '<p class="text-center text-gray-500 mt-8">ไม่พบข้อมูล</p>';
+        }
+
+        // --- SUMMARY ---
+        function renderStockSummary(term = '') {
+            let searchInput = document.getElementById('search-summary');
+
+            if (!searchInput) {
+                 contentContainer.innerHTML = `
+                    <div class="mb-4 flex gap-2">
+                        <input type="search" id="search-summary" placeholder="Search..." class="flex-grow p-3 border rounded shadow-sm">
+                        <select id="summary-sort-select" class="p-2 border rounded shadow-sm bg-white">
+                            <option value="qty-desc">Qty: High</option>
+                            <option value="qty-asc">Qty: Low</option>
+                            <option value="name-asc">Name: A-Z</option>
+                        </select>
+                    </div>
+                    <div class="bg-white rounded shadow"><ul id="summary-list"></ul></div>
+                `;
+                searchInput = document.getElementById('search-summary');
+                const sortSelect = document.getElementById('summary-sort-select');
+                
+                searchInput.addEventListener('input', e => updateStockSummaryItems());
+                sortSelect.addEventListener('change', e => updateStockSummaryItems());
+            }
+
+            updateStockSummaryItems();
+        }
+
+        function updateStockSummaryItems() {
+            const term = document.getElementById('search-summary').value.toLowerCase();
+            const sortVal = document.getElementById('summary-sort-select').value;
+
+            const summary = {};
+            state.borrowHistory.filter(i => i.status === 'อยู่ในระหว่างยืม').forEach(i => {
+                const k = i.productId || 'Unknown';
+                if(!summary[k]) summary[k] = { id: k, name: i.productName, qty: 0 };
+                summary[k].qty += (i.quantity || 0);
+            });
+            
+            const list = Object.values(summary)
+                .filter(i => i.name.toLowerCase().includes(term) || i.id.toLowerCase().includes(term))
+                .sort((a,b) => {
+                    if (sortVal === 'qty-desc') return b.qty - a.qty;
+                    if (sortVal === 'qty-asc') return a.qty - b.qty;
+                    if (sortVal === 'name-asc') return a.name.localeCompare(b.name);
+                    return 0;
+                })
+                .map(i => `
+                    <li class="flex justify-between p-4 border-b hover:bg-gray-50 cursor-pointer transition" onclick="jumpToHistory('${i.name}')">
+                        <div>
+                            <p class="font-bold text-gray-900">${i.name}</p>
+                            <p class="text-sm text-gray-500">${i.id}</p>
+                        </div>
+                        <span class="text-xl font-bold text-blue-600">${i.qty}</span>
+                    </li>
+                `).join('');
+            
+            document.getElementById('summary-list').innerHTML = list || '<li class="p-4 text-center">Empty</li>';
+        }
+
+        function jumpToHistory(term) {
+            state.activeTab = 'list';
+            renderApp(); 
+            const searchInput = document.getElementById('search-list');
+            if (searchInput) {
+                searchInput.value = term;
+                updateBorrowListItems();
+            }
+        }
+
+        // --- SHARED HELPERS ---
+        function filterProductDropdown(term) {
+            const list = document.getElementById('product-dropdown-list');
+            if(!list) return;
+            term = term.toLowerCase();
+            const filtered = state.productMaster.filter(p => p.ID.toLowerCase().includes(term) || p.Name.toLowerCase().includes(term));
+            
+            if (!filtered.length && !term) { list.classList.add('hidden'); return; }
+            list.innerHTML = filtered.length ? filtered.map(p => `<li class="p-2 hover:bg-gray-100 cursor-pointer" data-id="${p.ID}"><strong class="pointer-events-none">${p.ID}</strong>: ${p.Name}</li>`).join('') : '<li class="p-2 text-gray-500">No results</li>';
+            list.classList.remove('hidden');
+        }
+
+        function filterCustomerDropdown(term) {
+            const list = document.getElementById('customer-dropdown-list');
+            if(!list) return;
+            term = term.toLowerCase();
+            const filtered = state.customerMaster.filter(c => c.Name.toLowerCase().includes(term));
+            
+            if (!filtered.length && !term) { list.classList.add('hidden'); return; }
+            list.innerHTML = filtered.length 
+                ? filtered.map(c => `<li class="p-2 hover:bg-gray-100 cursor-pointer" data-name="${c.Name}">${c.Name}</li>`).join('')
+                : `<li class="p-2 text-gray-500 italic">Add new: "${term}"</li>`;
+            list.classList.remove('hidden');
+        }
+
+        function autoFillProductName(e) {
+            const p = state.productMaster.find(x => x.ID === e.target.value);
+            document.getElementById('productName').value = p ? p.Name : '';
+        }
+
+        async function addCustomerToSheet(name) {
+            try {
+                const searchRes = await fetchSheetDB(`/search?sheet=CustomerMaster&Name=${name}`);
+                const exists = await searchRes.json();
+                if(exists.length) return;
+                await fetchSheetDB('?sheet=CustomerMaster', {
+                    method: 'POST', 
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({data: {Name: name}})
+                });
+            } catch(e) { console.error("Auto-add customer failed", e); }
+        }
+
+        async function handleStatusChange(uid, newStatus) {
+            const item = state.borrowHistory.find(i => i.uid === uid);
+            if (!item || item.status === newStatus) return;
+            const oldStatus = item.status;
+            item.status = newStatus;
+            updateBorrowListItems();
+
+            if (!USE_MOCK_DATA) {
+                try {
+                    await fetchSheetDB(`/UID/${uid}?sheet=BorrowLog`, {
+                        method: 'PATCH',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({data: {Status: newStatus}})
+                    });
+                    showToast('Updated!', 'success');
+                } catch(e) {
+                    item.status = oldStatus;
+                    updateBorrowListItems();
+                    showToast('Update failed', 'error');
+                }
+            }
+        }
+
+        function handleDeleteConfirmation(uid, name) {
+            confirmTitle.textContent = `ลบ "${name}"?`;
+            const newBtn = confirmActionBtn.cloneNode(true);
+            newBtn.addEventListener('click', () => {
+                confirmModal.classList.add('hidden');
+                initiateDelete(uid);
+            });
+            confirmActionBtn.parentNode.replaceChild(newBtn, confirmActionBtn);
+            confirmActionBtn = newBtn;
+            confirmModal.classList.remove('hidden');
+        }
+
+        function initiateDelete(uid) {
+            const idx = state.borrowHistory.findIndex(i => i.uid === uid);
+            if (idx > -1) {
+                const item = state.borrowHistory[idx];
+                
+                state.borrowHistory.splice(idx, 1);
+                updateBorrowListItems();
+                
+                const undoToast = document.getElementById('undo-toast');
+                const undoBtn = document.getElementById('undo-btn');
+                
+                if (state.pendingDelete) {
+                    clearTimeout(state.pendingDelete.timeoutId);
+                    finalizeDelete(state.pendingDelete.item.uid, true); 
+                }
+
+                state.pendingDelete = {
+                    item: item,
+                    index: idx,
+                    timeoutId: setTimeout(() => finalizeDelete(item.uid), 4000) 
+                };
+                
+                undoToast.classList.remove('hidden');
+                
+                undoBtn.onclick = () => {
+                    clearTimeout(state.pendingDelete.timeoutId);
+                    state.borrowHistory.push(state.pendingDelete.item);
+                    state.borrowHistory.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    
+                    updateBorrowListItems();
+                    state.pendingDelete = null;
+                    undoToast.classList.add('hidden');
+                    showToast('Restored', 'success');
+                };
+            }
+        }
+
+        async function finalizeDelete(uid, skipUI = false) {
+            if (!skipUI) {
+                const undoToast = document.getElementById('undo-toast');
+                if(undoToast) undoToast.classList.add('hidden');
+                state.pendingDelete = null;
+            }
+
+            if (!USE_MOCK_DATA) {
+                try {
+                    await fetchSheetDB(`/UID/${uid}?sheet=BorrowLog`, { method: 'DELETE' });
+                } catch(e) {
+                    console.error("Delete failed", e);
+                    showToast('Delete failed on server', 'error');
+                }
+            }
+        }
+
+        function setLoading(b) {
+            if(b) loadingOverlay.classList.remove('hidden');
+            else loadingOverlay.classList.add('hidden');
+        }
+        function showToast(msg, type) {
+            toastMessage.textContent = msg;
+            toast.className = `fixed top-5 right-5 p-3 rounded shadow text-white z-50 transition-opacity duration-300 ${type === 'error' ? 'bg-red-500' : 'bg-green-500'}`;
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+        
+        function handleHeaderClick() {
+            headerClickCount++;
+            clearTimeout(headerClickTimer);
+            headerClickTimer = setTimeout(() => headerClickCount = 0, 1000);
+            if(headerClickCount === 3) {
+                const debugState = {
+                    meta: {
+                        activeTab: state.activeTab,
+                        isLoading: state.isLoading,
+                        currentApiIndex: state.currentApiIndex,
+                        lastError: state.lastError,
+                        pendingDelete: !!state.pendingDelete,
+                        cache: {
+                            products: !!getCachedData('products'),
+                            customers: !!getCachedData('customers')
+                        }
+                    },
+                    counts: {
+                        products: state.productMaster.length,
+                        customers: state.customerMaster.length,
+                        totalHistory: state.borrowHistory.length
+                    },
+                    latestHistory: state.borrowHistory.slice(0, 5),
+                    CHANGELOG: CHANGELOG
+                };
+                
+                debugDataPre.textContent = JSON.stringify(debugState, null, 2);
+                debugOverlay.classList.remove('hidden');
+                headerClickCount = 0;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
