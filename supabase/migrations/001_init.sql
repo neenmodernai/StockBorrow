@@ -59,6 +59,7 @@ alter table public.customers  enable row level security;
 alter table public.borrow_log enable row level security;
 
 drop policy if exists products_read   on public.products;
+drop policy if exists products_add    on public.products;
 drop policy if exists customers_read  on public.customers;
 drop policy if exists customers_add   on public.customers;
 drop policy if exists log_read        on public.borrow_log;
@@ -66,6 +67,7 @@ drop policy if exists log_add         on public.borrow_log;
 drop policy if exists log_update      on public.borrow_log;
 
 create policy products_read  on public.products   for select to anon, authenticated using (true);
+create policy products_add   on public.products   for insert to anon, authenticated with check (true);
 create policy customers_read on public.customers  for select to anon, authenticated using (true);
 create policy customers_add  on public.customers   for insert to anon, authenticated with check (true);
 create policy log_read       on public.borrow_log  for select to anon, authenticated using (true);
@@ -73,7 +75,7 @@ create policy log_add        on public.borrow_log  for insert to anon, authentic
 create policy log_update     on public.borrow_log  for update to anon, authenticated using (true) with check (true);
 
 revoke all on public.products, public.customers, public.borrow_log, public.stock_summary from anon, authenticated;
-grant select on public.products, public.stock_summary to anon, authenticated;
+grant select, insert on public.products to anon, authenticated;
 grant select, insert on public.customers to anon, authenticated;
 grant select, insert on public.borrow_log to anon, authenticated;
 grant update (status, deleted_at) on public.borrow_log to anon, authenticated;

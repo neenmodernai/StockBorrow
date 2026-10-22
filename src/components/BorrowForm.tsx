@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { STATUS, type Notify } from "@/lib/types";
 import { cleanTerm } from "@/lib/utils";
 import Combobox, { type ComboOption } from "./Combobox";
+import NewProductDialog from "./NewProductDialog";
 
 interface Props {
   notify: Notify;
@@ -23,7 +24,10 @@ async function searchProducts(q: string): Promise<ComboOption[]> {
     .order("id")
     .limit(20);
   if (error) throw error;
-  return (data ?? []).map((p) => ({ value: p.id, label: p.name, sub: p.id }));
+  const opts: ComboOption[] = (data ?? []).map((p) => ({ value: p.id, label: p.name, sub: p.id }));
+  const exact = opts.some((o) => o.value.toLowerCase() === q.trim().toLowerCase());
+  if (!exact) opts.push({ value: q.trim(), label: `เพิ่มสินค้าใหม่: ${q.trim()}`, isNew: true });
+  return opts;
 }
 
 async function searchCustomers(q: string): Promise<ComboOption[]> {
@@ -56,6 +60,7 @@ export default function BorrowForm({ notify, onFinished }: Props) {
   const [barcode, setBarcode] = useState("");
   const [saving, setSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [newProduct, setNewProduct] = useState<{ id: string; name: string } | null>(null);
 
   // Remember who is using this phone, so they only type their name once.
   useEffect(() => {
@@ -63,6 +68,13 @@ export default function BorrowForm({ notify, onFinished }: Props) {
       setRequester(localStorage.getItem(REQUESTER_KEY) ?? "");
     } catch {}
   }, []);
+
+  // Open the "new product" dialog; a number is treated as the ID, anything else as the name
+  function openNewProduct(text: string) {
+    const t = text.trim();
+    const isCode = /^\d+$/.test(t);
+    setNewProduct({ id: isCode ? t : "", name: isCode ? "" : t });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -153,12 +165,25 @@ export default function BorrowForm({ notify, onFinished }: Props) {
             value={productQuery}
             onChange={setProductQuery}
             onSelect={(o) => {
+              if (o.isNew) {
+                openNewProduct(o.value);
+                return;
+              }
               setProduct({ id: o.value, name: o.label });
               setProductQuery("");
             }}
             fetchOptions={searchProducts}
             placeholder="ค้นหาสินค้า..."
           />
+        )}
+        {!product && (
+          <button
+            type="button"
+            onClick={() => openNewProduct(productQuery)}
+            className="-mt-2 self-start text-sm font-medium text-blue-700 underline"
+          >
+            + เพิ่มสินค้าใหม่ (ไม่มีรหัสในระบบ)
+          </button>
         )}
 
         <div className="grid grid-cols-2 gap-4">
@@ -214,6 +239,20 @@ export default function BorrowForm({ notify, onFinished }: Props) {
           {saving ? "กำลังบันทึก..." : "บันทึกการยืม"}
         </button>
       </form>
+
+      {newProduct && (
+        <NewProductDialog
+          initialId={newProduct.id}
+          initialName={newProduct.name}
+          notify={notify}
+          onCancel={() => setNewProduct(null)}
+          onCreated={(p) => {
+            setProduct(p);
+            setProductQuery("");
+            setNewProduct(null);
+          }}
+        />
+      )}
 
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">

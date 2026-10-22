@@ -1,6 +1,6 @@
 -- supabase/verify.sql
 -- Run after importing the three CSV files. Expected results are in the comments.
-select 'products'  as tbl, count(*) as rows from public.products     -- expect 18115
+select 'products'  as tbl, count(*) as rows from public.products     -- expect 18115 (18117 after running 003_products_insert_and_new_items.sql)
 union all select 'customers', count(*) from public.customers          -- expect 1371
 union all select 'borrow_log', count(*) from public.borrow_log;       -- expect 5641
 
